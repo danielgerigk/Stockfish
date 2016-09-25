@@ -181,9 +181,9 @@ void Search::init() {
 
   for (int imp = 0; imp <= 1; ++imp)
       for (int d = 1; d < 64; ++d)
-          for (int mc = 1; mc < 64; ++mc)
+          for (int mc = 0; mc < 64; ++mc)
           {
-              double r = log(d) * log(mc) / 2;
+              double r = log(d) * log(mc + 1) / 2;
               if (r < 0.80)
                 continue;
 
@@ -197,8 +197,8 @@ void Search::init() {
 
   for (int d = 0; d < 16; ++d)
   {
-      FutilityMoveCounts[0][d] = int(2.4 + 0.773 * pow(d + 0.00, 1.8));
-      FutilityMoveCounts[1][d] = int(2.9 + 1.045 * pow(d + 0.49, 1.8));
+      FutilityMoveCounts[0][d] = int(1.4 + 0.773 * pow(d + 0.00, 1.8));
+      FutilityMoveCounts[1][d] = int(1.9 + 1.045 * pow(d + 0.49, 1.8));
   }
 }
 
@@ -866,12 +866,10 @@ moves_loop: // When in check search starts from here
                                   thisThread->rootMoves.end(), move))
           continue;
 
-      ss->moveCount = ++moveCount;
-
       if (rootNode && thisThread == Threads.main() && Time.elapsed() > 3000)
           sync_cout << "info depth " << depth / ONE_PLY
                     << " currmove " << UCI::move(move, pos.is_chess960())
-                    << " currmovenumber " << moveCount + thisThread->PVIdx << sync_endl;
+                    << " currmovenumber " << moveCount + 1 + thisThread->PVIdx << sync_endl;
 
       if (PvNode)
           (ss+1)->pv = nullptr;
@@ -905,11 +903,13 @@ moves_loop: // When in check search starts from here
       {
           Value rBeta = std::max(ttValue - 2 * depth / ONE_PLY, -VALUE_MATE);
           Depth d = (depth / (2 * ONE_PLY)) * ONE_PLY;
+          /* ss->moveCount = ++moveCount; This is NOT needed, same bench */
           ss->excludedMove = move;
           ss->skipEarlyPruning = true;
           value = search<NonPV>(pos, ss, rBeta - 1, rBeta, d, cutNode);
           ss->skipEarlyPruning = false;
           ss->excludedMove = MOVE_NONE;
+          /* ss->moveCount = --moveCount; This is NOT needed, same bench */
 
           if (value < rBeta)
               extension = ONE_PLY;
@@ -961,11 +961,9 @@ moves_loop: // When in check search starts from here
 
       // Check for legality just before making the move
       if (!rootNode && !pos.legal(move))
-      {
-          ss->moveCount = --moveCount;
           continue;
-      }
 
+      ss->moveCount = ++moveCount;
       ss->currentMove = move;
       ss->counterMoves = &thisThread->counterMoveHistory[moved_piece][to_sq(move)];
 
